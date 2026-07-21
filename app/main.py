@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
 from app.database import Base, SessionLocal, engine, get_db
-from app.models import Chunk, Conversation, Document, Message, User
+from app.models import Conversation, Document, User
 from app.schemas import ChatRequest, ChatResponse, ConversationOut, DocumentOut, LoginRequest, MessageOut, RegisterRequest, UserOut
 from app.security import create_access_token, get_current_user, hash_password, verify_password
 from app.services.chat import ChatService

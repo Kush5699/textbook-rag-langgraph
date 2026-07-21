@@ -24,6 +24,7 @@ COPY requirements-reranker.txt .
 RUN if [ "$INSTALL_RERANKER" = "true" ]; then pip install -r requirements-reranker.txt; fi
 
 COPY app ./app
+COPY tests ./tests
 RUN mkdir -p /app/data /app/uploads && useradd --create-home appuser && chown -R appuser:appuser /app
 USER appuser
 
