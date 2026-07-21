@@ -1,0 +1,30 @@
+services:
+  app:
+    build: .
+    env_file:
+      - ${ENV_FILE:-.env}
+    ports:
+      - "8000:8000"
+    volumes:
+      - app-data:/app/data
+      - app-uploads:/app/uploads
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:v1.15.1
+    volumes:
+      - qdrant-data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/6333'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  app-data:
+  app-uploads:
+  qdrant-data:

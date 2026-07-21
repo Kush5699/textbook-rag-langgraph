@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade pip
+      - run: pip install -r requirements.txt
+      - run: ruff check app tests
+      - run: pytest
+        env:
+          EMBEDDING_PROVIDER: hash
+          CHAT_PROVIDER: demo
+          EMBEDDING_DIMENSIONS: "128"
+          DATABASE_URL: sqlite:///./test.db
+          JWT_SECRET: test-only-secret-not-for-production
+
