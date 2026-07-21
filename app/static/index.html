@@ -25,10 +25,18 @@
         <p id="auth-help">Use your account to keep textbooks and conversations private.</p>
         <form id="auth-form">
           <label>Email<input id="email" type="email" autocomplete="email" required></label>
-          <label>Password<input id="password" type="password" autocomplete="current-password" minlength="12" required></label>
+          <label>Password
+            <span class="password-field">
+              <input id="password" type="password" autocomplete="current-password" minlength="12" required>
+              <button id="password-toggle" class="password-toggle" type="button" aria-label="Show password" aria-pressed="false">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path><circle cx="12" cy="12" r="2.75"></circle><path class="eye-slash" d="M4 4 20 20"></path></svg>
+              </button>
+            </span>
+          </label>
           <button id="auth-submit" type="submit">Sign in</button>
         </form>
         <p id="auth-error" class="error" role="alert"></p>
+        <button id="forgot-password" class="text-button forgot-password" type="button">Forgot password?</button>
         <button id="auth-toggle" class="text-button" type="button">Need an account? Create one</button>
       </section>
     </main>
@@ -83,4 +91,3 @@
     <script src="/static/app.js" defer></script>
   </body>
 </html>
-

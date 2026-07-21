@@ -101,6 +101,16 @@ function escapeHtml(value) { const node = document.createElement("span"); node.t
 
 $("#auth-form").addEventListener("submit", async (event) => { event.preventDefault(); const error = $("#auth-error"); error.textContent = ""; try { state.user = await api(`/api/auth/${state.mode === "register" ? "register" : "login"}`, { method: "POST", body: JSON.stringify({ email: $("#email").value, password: $("#password").value }) }); showApp(); } catch (err) { error.textContent = err.message; } });
 $("#auth-toggle").onclick = () => setAuthMode(state.mode === "login" ? "register" : "login");
+$("#password-toggle").onclick = () => {
+  const password = $("#password");
+  const visible = password.type === "password";
+  password.type = visible ? "text" : "password";
+  $("#password-toggle").setAttribute("aria-pressed", String(visible));
+  $("#password-toggle").setAttribute("aria-label", visible ? "Hide password" : "Show password");
+};
+$("#forgot-password").onclick = () => {
+  $("#auth-error").textContent = "Password-reset emails are not configured for this local demo yet. Create a new account or add an email provider before public deployment.";
+};
 $("#logout").onclick = async () => { await api("/api/auth/logout", { method: "POST" }); state.user = null; state.conversationId = null; showAuth(); };
 $("#new-chat").onclick = () => { state.conversationId = null; $("#chat-title").textContent = "New conversation"; $("#chat-feed").innerHTML = '<div class="empty-state" id="empty-chat"><h2>What would you like to learn?</h2><p>Ask a question after adding at least one textbook to your library.</p></div>'; loadConversations(); };
 $("#mobile-library").onclick = () => $("#library").classList.add("open"); $("#close-library").onclick = () => $("#library").classList.remove("open");
