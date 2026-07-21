@@ -25,6 +25,8 @@ curl http://localhost:8000/health
 
 Put a TLS reverse proxy such as Caddy, Nginx, or your cloud load balancer in front of port 8000. Do not expose Qdrant's port publicly.
 
+For a production deployment that needs the optional neural cross-encoder reranker, build the application image with `INSTALL_RERANKER=true`. The default image has a lightweight deterministic fallback, so a demo can start quickly without downloading PyTorch.
+
 ## Render + Qdrant Cloud
 
 1. Push this repository to GitHub.

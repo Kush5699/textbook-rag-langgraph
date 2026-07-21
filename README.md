@@ -52,7 +52,7 @@ The full design, trade-offs, and safety controls are in [docs/architecture.md](d
 3. Start the application and Qdrant:
 
    ```powershell
-   docker compose up --build
+docker compose up --build
    ```
 
 4. Open [http://localhost:8000](http://localhost:8000), create an account, upload PDFs, wait for each document to become `ready`, and ask a question.
@@ -78,6 +78,8 @@ pytest
 ```
 
 The user interface is served from the FastAPI application. API documentation is available at `/docs` while running.
+
+The default Docker image uses the lightweight deterministic reranker. For the optional local cross-encoder reranker in a higher-quality deployment, build with `--build-arg INSTALL_RERANKER=true`; it downloads the additional PyTorch runtime and is intentionally not part of the fast demo image.
 
 ## Configuration
 

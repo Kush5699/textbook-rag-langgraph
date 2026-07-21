@@ -17,11 +17,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
+# Opt in for a full local CrossEncoder reranker with:
+# docker build --build-arg INSTALL_RERANKER=true .
+ARG INSTALL_RERANKER=false
+COPY requirements-reranker.txt .
+RUN if [ "$INSTALL_RERANKER" = "true" ]; then pip install -r requirements-reranker.txt; fi
+
 COPY app ./app
-COPY scripts ./scripts
 RUN mkdir -p /app/data /app/uploads && useradd --create-home appuser && chown -R appuser:appuser /app
 USER appuser
 
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
-
