@@ -5,9 +5,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
-    # LLM (llama-3.3-70b-versatile offers 300 tokens/sec and 6000 TPM limit on Groq)
+    # LLMs (Flagship 120B for answer synthesis, Fast 20B for helper routing/grading)
     GROQ_API_KEY: str = ""
-    GROQ_MODEL: str = "llama-3.3-70b-versatile"
+    GROQ_MODEL: str = "openai/gpt-oss-120b"
+    GROQ_FAST_MODEL: str = "openai/gpt-oss-20b"
 
     # Firebase
     FIREBASE_PROJECT_ID: str = "gsstb-scholar-f670e"
