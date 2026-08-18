@@ -9,12 +9,14 @@ RUN npm install
 COPY frontend/ ./
 RUN npm run build
 
-# Stage 2: Ultra-lightweight Python Backend (Memory-Optimized for 512MB RAM)
+# Stage 2: Ultra-lightweight Python Backend with Native C++ Tesseract OCR
 FROM python:3.11-slim AS runner
 WORKDIR /app
 
-# Install lightweight system dependencies
+# Install lightweight system dependencies including native Tesseract C++ OCR
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    tesseract-ocr \
+    tesseract-ocr-eng \
     libgl1 \
     libglib2.0-0 \
     curl \

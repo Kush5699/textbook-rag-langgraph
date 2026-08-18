@@ -7,8 +7,10 @@ import gc
 
 logger = logging.getLogger(__name__)
 
-# Check once at module load if tesseract executable is on PATH
-TESSERACT_AVAILABLE = shutil.which("tesseract") is not None
+# Check dynamically if tesseract executable is on PATH
+def is_tesseract_available():
+    return shutil.which("tesseract") is not None
+
 EASYOCR_READER = None
 
 
@@ -30,14 +32,16 @@ def get_easyocr_reader():
 
 def extract_text_from_pdf(file_path: str):
     """
-    Extracts text and structured tables page by page using PyMuPDF.
+    Extracts text and structured tables page by page using PyMuPDF and OCR.
     1. Robustly samples throughout the book to detect digital text.
     2. Extracts digital text and tables directly with zero memory overhead.
-    3. Uses OCR fallback only for purely scanned image textbooks.
+    3. Uses lightweight native C++ Tesseract OCR for scanned image textbooks.
+    4. Falls back to quantized EasyOCR if Tesseract is not present.
     """
     doc = pymupdf.open(file_path)
     pages_data = []
     total_pages = len(doc)
+    tesseract_available = is_tesseract_available()
 
     # Sample middle and later pages across the book body (avoids blank cover/copyright pages)
     sample_ratios = [0.15, 0.30, 0.45, 0.60, 0.75, 0.85]
@@ -52,7 +56,7 @@ def extract_text_from_pdf(file_path: str):
                 pass
                 
     has_digital_text = total_sample_chars > 150
-    logger.info(f"PDF Extraction: '{file_path}' ({total_pages} pages) - Digital Text Detected: {has_digital_text} ({total_sample_chars} sample chars)")
+    logger.info(f"PDF Extraction: '{file_path}' ({total_pages} pages) - Digital: {has_digital_text} (sample chars: {total_sample_chars}, Tesseract OCR: {tesseract_available})")
 
     try:
         for page_num in range(total_pages):
@@ -76,25 +80,27 @@ def extract_text_from_pdf(file_path: str):
             except Exception as tab_err:
                 logger.debug(f"Table extraction skipped for page {page_num + 1}: {tab_err}")
 
-            # 3. Only run OCR if the document is a pure scanned book with zero digital text
+            # 3. Apply lightweight OCR for purely scanned books (0 digital text)
             if len(text) < 30 and not has_digital_text:
-                if TESSERACT_AVAILABLE:
+                if tesseract_available:
                     try:
+                        import pytesseract
+                        # 100 DPI gives clean OCR text while using only ~15MB RAM
                         pix = page.get_pixmap(dpi=100)
                         img = Image.open(io.BytesIO(pix.tobytes()))
                         ocr_text = pytesseract.image_to_string(img, lang="eng")
                         if ocr_text.strip():
                             text = ocr_text.strip()
                         del pix, img
-                    except Exception:
-                        pass
+                    except Exception as tess_err:
+                        logger.debug(f"Tesseract OCR error on page {page_num + 1}: {tess_err}")
                 else:
                     reader = get_easyocr_reader()
                     if reader:
                         try:
                             import torch
                             with torch.no_grad():
-                                pix = page.get_pixmap(dpi=90)
+                                pix = page.get_pixmap(dpi=80)
                                 ocr_lines = reader.readtext(pix.tobytes(), detail=0)
                                 if ocr_lines:
                                     text = " ".join(ocr_lines).strip()
@@ -102,14 +108,19 @@ def extract_text_from_pdf(file_path: str):
                         except Exception as eocr_err:
                             logger.debug(f"EasyOCR error on page {page_num + 1}: {eocr_err}")
 
-            # Periodic garbage collection
-            if page_num > 0 and page_num % 30 == 0:
+            # Periodic garbage collection every 20 pages
+            if page_num > 0 and page_num % 20 == 0:
                 gc.collect()
             
             pages_data.append({
                 "page_number": page_num + 1,
                 "text": text
             })
+            
+            # Log progress every 50 pages for large scanned books
+            if (page_num + 1) % 50 == 0 or (page_num + 1) == total_pages:
+                logger.info(f"Ingestion progress for '{file_path}': {page_num + 1}/{total_pages} pages processed.")
+                
     finally:
         doc.close()
         gc.collect()
