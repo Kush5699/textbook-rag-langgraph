@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body {
+    @apply antialiased text-on-surface bg-surface font-sans;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display;
+  }
+}
+
+@layer utilities {
+  .text-display-lg {
+    @apply font-display text-[56px] leading-[64px] font-bold tracking-[-0.02em];
+  }
+  .text-display-md {
+    @apply font-display text-[48px] leading-[56px] font-bold tracking-[-0.02em];
+  }
+  .text-headline-xl {
+    @apply font-display text-[40px] leading-[48px] font-bold tracking-[-0.02em];
+  }
+  .text-headline-lg {
+    @apply font-display text-[32px] leading-[40px] font-semibold tracking-[-0.02em];
+  }
+  .text-headline-md {
+    @apply font-display text-[24px] leading-[32px] font-semibold tracking-[-0.01em];
+  }
+  .text-body-lg {
+    @apply font-sans text-[18px] leading-[28px] font-normal;
+  }
+  .text-body-md {
+    @apply font-sans text-[16px] leading-[24px] font-normal;
+  }
+  .text-body-sm {
+    @apply font-sans text-[14px] leading-[20px] font-normal;
+  }
+  .text-label-md {
+    @apply font-sans text-[14px] leading-[20px] font-medium tracking-[0.01em];
+  }
+  .text-code-md {
+    @apply font-mono text-[14px] leading-[20px] font-normal;
+  }
+}

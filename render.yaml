@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: gsstb-scholar
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-120b
+      - key: FIREBASE_PROJECT_ID
+        value: gsstb-scholar-f670e
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: PORT
+        value: 8001

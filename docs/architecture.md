@@ -1,69 +1,392 @@
-# Architecture and design decisions
+# GSSTB Scholar - Architecture Documentation
 
-## Goal
+## Table of Contents
 
-Textbook RAG lets a learner ask a natural-language question and receive an answer supported only by pages from their uploaded PDFs. The system must answer across subjects, cite pages accurately, retain conversational context, and refuse unsupported questions.
+1. [System Overview](#system-overview)
+2. [Ingestion Pipeline](#ingestion-pipeline)
+3. [Retrieval Pipeline](#retrieval-pipeline)
+4. [Generation Pipeline](#generation-pipeline)
+5. [Conversational Context Resolution](#conversational-context-resolution)
+6. [Distance-Threshold Refusal Mechanism](#distance-threshold-refusal-mechanism)
+7. [Authentication and Session Management](#authentication-and-session-management)
+8. [Data Storage](#data-storage)
+9. [Frontend Architecture](#frontend-architecture)
+10. [Deployment Architecture](#deployment-architecture)
 
-## Ingestion path
+---
 
-```text
-Upload PDF
-  -> validate size/type and store outside static web paths
-  -> extract text page by page with pypdf
-  -> OCR only when average extracted text is too small
-  -> normalize text and retain original page numbers
-  -> create parents (~900 tokens) and children (~260 tokens)
-  -> contextualise children with source, heading, subject, standard, and pages
-  -> create dense embeddings and lexical index entries
-  -> persist document/chunks in SQL and vectors in Qdrant
+## System Overview
+
+GSSTB Scholar is a conversational RAG (Retrieval-Augmented Generation) system designed to answer student questions exclusively from official Gujarat State Board textbook PDFs. The system enforces strict grounding: every answer must be traceable to specific textbook pages, and questions outside the corpus are refused deterministically.
+
+The architecture follows a layered pipeline design:
+
+```
+User Question
+    |
+    v
+[Conversation Context Manager] -- pulls last 10 turns
+    |
+    v
+[Standalone Query Rewriter] -- rewrites follow-ups into self-contained queries
+    |
+    v
+[Query Router] -- extracts standard(s) and subject(s) via LLM function-calling
+    |
+    v
+[Hybrid Retriever] -- parallel vector + BM25 search with metadata filters
+    |
+    v
+[Reciprocal Rank Fusion] -- merges and deduplicates results
+    |
+    v
+[Distance Threshold Gate] -- cosine distance >= 1.30 triggers refusal
+    |
+    v
+[Optional Cross-Encoder Reranker] -- reranks fused candidates
+    |
+    v
+[Context Constructor] -- builds grounded prompt with chunk text + metadata
+    |
+    v
+[LLM Generator] -- Groq llama-3.3-70b-versatile, streaming via SSE
+    |
+    v
+[Citation Extractor] -- maps used chunks to {textbook, page, snippet}
+    |
+    v
+[SSE Response Stream] -- tokens + final citation payload
 ```
 
-### Why parent-child chunks?
+---
 
-Small child chunks improve retrieval precision. Larger parents retain enough surrounding explanation for an answer. The current retrieval stores child vectors, then can be extended to expand a matched child to its parent or siblings before generation. Every chunk has original PDF page metadata, so citations remain reliable after chunking.
+## Ingestion Pipeline
 
-The chunker is generic: it prefers paragraph and sentence boundaries, detects headings only as optional context, and uses a token limit as a fallback. It does not require a finite list of document types.
+### PDF Text Extraction
 
-## Retrieval path
+The ingestion pipeline uses a two-tier extraction strategy:
 
-```text
-Question + recent student questions
-  -> dense query embedding -> Qdrant semantic top-k
-  -> exact-term query -> SQLite FTS keyword top-k
-  -> reciprocal rank fusion
-  -> metadata / document ownership checks
-  -> optional cross-encoder reranking
-  -> top evidence chunks -> grounded prompt
+1. **Primary: PyMuPDF (fitz)**
+   - Handles most GSSTB textbooks which use standard embedded fonts
+   - Preserves Unicode text including Identity-H encoded fonts
+   - Extracts text page-by-page with page number tracking
+
+2. **Fallback: pytesseract OCR**
+   - Activated per-page when PyMuPDF extracts fewer than 50 characters
+   - Handles scanned pages (common in older editions and supplementary readers)
+   - Logs which pages required OCR for debugging
+
+### Metadata Extraction
+
+Each PDF's filename is parsed to extract structured metadata:
+
+```
+"Std-9_Science_English Medium.pdf"
+  -> standard: "Std_09"
+  -> subject: "Science"
+  -> medium: "English"
 ```
 
-Hybrid search is valuable for textbooks because conceptual questions need semantic similarity while word meanings, names, dates, formulas, and exercise numbers need exact matching. Qdrant supports combining semantic and lexical retrieval approaches; this project uses Qdrant for the dense leg and SQLite FTS for a portable lexical leg.
+**Standard Normalization**: All variant forms ("Std 9", "STD-11", "Std-09") are normalized to zero-padded canonical form: `Std_09`, `Std_10`, `Std_11`, `Std_12`.
 
-## Grounding and refusal
+**Subject Extraction**: Includes a typo correction map for known filename errors in the GSSTB corpus:
+- `Psaychology` / `psaychology` -> `Psychology`
+- `Bilology` -> `Biology`
+- `Sanskrut` -> `Sanskrit`
+- `Lapwimg` -> `Lapwing`
 
-The answer path has three layers:
+**English Literature Mapping**: Prescribed textbook titles (`Beehive`, `Hornbill`, `First Flight`, `Kaleidoscope`, etc.) are mapped to subject `English`.
 
-1. An evidence score threshold prevents generation when no meaningful retrieval occurs.
-2. The model receives only retrieved textbook evidence and a system instruction that forbids general knowledge and evidence-contained instructions.
-3. Source name and page citations are constructed by application code from persisted metadata, never generated by the model.
+### Chunking Strategy
 
-If the evidence is insufficient, the user sees exactly: `I could not find this information in the provided textbooks.`
+Text is chunked at **500 tokens** with **50-token overlap** using a whitespace-based tokenizer:
 
-## Security and privacy
+1. Split page text into sentences using period/newline boundaries
+2. Accumulate sentences until the token count reaches 500
+3. When a chunk boundary is reached, include the last 50 tokens as overlap with the next chunk
+4. Each chunk receives a deterministic `chunk_id` computed as `SHA256(textbook_name + page_number + chunk_position)`
 
-- Passwords use Argon2 through `pwdlib`; plain-text passwords are never stored.
-- Authentication is a signed, HTTP-only, `SameSite=Lax` cookie.
-- Every SQL and vector query is scoped to the authenticated owner ID.
-- Uploaded files are given UUID-based server file names and never served as static assets.
-- Production must use HTTPS, `COOKIE_SECURE=true`, a unique long `JWT_SECRET`, restricted `ALLOWED_ORIGINS`, managed backups, and a non-SQLite database.
+Metadata attached to every chunk:
+- `chunk_id` (for idempotency)
+- `textbook_name`
+- `page_number`
+- `standard` (normalized)
+- `subject`
+- `text` (the chunk content)
 
-## Scalability evolution
+### Idempotency
 
-The Docker Compose stack is appropriate for a portfolio/demo deployment. At higher scale:
+Before inserting chunks into ChromaDB:
+1. Check if `chunk_id` already exists in the collection
+2. Skip existing chunks to prevent duplication
+3. Track file content hashes to detect duplicate PDFs stored in different directories
 
-- move SQLite to managed PostgreSQL;
-- run PDF ingestion in a queue worker rather than FastAPI background tasks;
-- use object storage for PDFs;
-- use managed Qdrant with payload indexes for owner/subject/standard;
-- add rate limiting, observability, error tracking, and automated retrieval evaluations;
-- periodically evaluate chunk sizes, embedding model, reranking, and answerability threshold against labelled textbook questions.
+---
 
+## Retrieval Pipeline
+
+### Vector Search (ChromaDB)
+
+- **Model**: `sentence-transformers/all-MiniLM-L6-v2` (384-dimensional dense vectors)
+- **Collection**: Single persistent ChromaDB collection with metadata filtering
+- **Query**: Embed the rewritten query, search top-K (default 10) results
+- **Metadata Filters**: When the query router confidently detects a standard/subject, these are applied as `where` filters to narrow the search space
+
+### Keyword Search (BM25)
+
+- **Algorithm**: BM25Okapi from the `rank_bm25` library
+- **Tokenizer**: Custom regex tokenizer that:
+  - Lowercases all text
+  - Splits on non-alphanumeric characters
+  - Removes English stop words (`the`, `is`, `a`, `an`, `who`, `what`, `where`, `when`, `how`, `are`, `was`, `were`, etc.)
+- **Persistence**: The BM25 index is serialized to disk via pickle after build
+- **Post-filtering**: Metadata filters (standard/subject) are applied after BM25 scoring since BM25 does not natively support metadata
+
+### Reciprocal Rank Fusion (RRF)
+
+Vector and BM25 results are merged using RRF with constant k=60:
+
+```
+RRF_score(d) = sum over all rankers R of: 1 / (k + rank_R(d))
+```
+
+This produces a single ranked list that balances semantic similarity (vectors) with exact term matching (BM25).
+
+### Distance Threshold Filtering
+
+After fusion, chunks are filtered by their original cosine distance from the vector search:
+
+- Chunks with cosine distance >= `DISTANCE_THRESHOLD` (default 1.30, configurable via env) are discarded
+- If zero chunks survive this filter, the system short-circuits to the refusal response without making any LLM call
+- This is the primary mechanism for out-of-domain detection
+
+### Optional Cross-Encoder Reranking
+
+When `ENABLE_RERANKER=true`:
+- Fused candidates are re-scored using `cross-encoder/ms-marco-MiniLM-L-6-v2`
+- The cross-encoder takes (query, chunk_text) pairs and produces relevance scores
+- Results are re-sorted by cross-encoder score
+- This typically improves precision by 5-15% at the cost of ~200ms latency
+
+---
+
+## Generation Pipeline
+
+### LLM Provider Interface
+
+The generation layer uses a provider-agnostic interface:
+
+```python
+class LLMProvider(ABC):
+    @abstractmethod
+    async def generate_stream(
+        self, messages: list[dict], temperature: float
+    ) -> AsyncIterator[str]:
+        ...
+```
+
+Swapping from Groq to OpenAI requires only changing the provider implementation, not the pipeline code.
+
+### System Prompt Design
+
+The system prompt enforces strict grounding:
+
+1. **No hallucination**: "Answer ONLY using the provided context. If the context does not contain the answer, say so."
+2. **No meta-phrases**: "Do NOT use phrases like 'according to the textbook' or 'based on the provided context'."
+3. **Math formatting**: "Use $ ... $ for inline math and $$ ... $$ for display math."
+4. **Direct answers**: "Provide direct, educational answers as if you are explaining to a student."
+
+### SSE Streaming
+
+Responses are streamed via Server-Sent Events using `sse-starlette`:
+
+```
+event: token
+data: {"text": "The "}
+
+event: token
+data: {"text": "volume "}
+
+event: token
+data: {"text": "of a cylinder..."}
+
+event: done
+data: {
+  "citations": [
+    {
+      "textbook": "Std-10_Maths_EnglishMedium.pdf",
+      "standard": "Std_10",
+      "subject": "Mathematics",
+      "page": 142,
+      "snippet": "The volume of a cylinder is calculated by..."
+    }
+  ],
+  "refused": false
+}
+```
+
+---
+
+## Conversational Context Resolution
+
+### The Problem
+
+Follow-up questions like "what about std 11?" or "explain in more detail" are meaningless without the context of prior turns. A bare vector search on "what about std 11?" will return irrelevant results.
+
+### The Solution: Query Rewriting
+
+Before retrieval, the system rewrites follow-up questions into standalone queries:
+
+1. Retrieve the last 10 turns from the session's message history
+2. Send the conversation context + current question to the LLM with a rewriting prompt
+3. The LLM produces a standalone query that incorporates context
+
+**Example:**
+```
+Turn 1: "What is the formula for area of a circle?"
+Turn 2: "What about the volume of a sphere?"
+Turn 3: "Explain for std 11"
+
+Rewritten query for Turn 3:
+"Explain the formula for the volume of a sphere as covered in Standard 11 Mathematics textbook"
+```
+
+### Query Routing
+
+After rewriting, the query router uses LLM function-calling to extract structured metadata:
+
+```json
+{
+  "standards": ["Std_11"],
+  "subjects": ["Mathematics"]
+}
+```
+
+These are applied as hard metadata filters during retrieval, dramatically improving precision.
+
+---
+
+## Distance-Threshold Refusal Mechanism
+
+### How It Works
+
+1. After hybrid retrieval, examine the cosine distances from the vector search
+2. Discard any chunk with cosine distance >= `DISTANCE_THRESHOLD` (default: 1.30)
+3. If zero chunks remain after filtering:
+   - Return the exact string: "The requested information is unavailable in the provided Gujarat State Board textbooks."
+   - Attach zero citations
+   - Set `refused: true` in the response payload
+   - Do NOT call the LLM at all (saves API cost and latency)
+
+### Why 1.30?
+
+ChromaDB uses L2 (Euclidean) distance by default for cosine similarity, where:
+- Distance 0.0 = identical vectors
+- Distance ~1.0 = orthogonal (unrelated)
+- Distance ~2.0 = opposite
+
+The threshold of 1.30 provides a comfortable margin above orthogonality, catching truly out-of-domain queries while allowing for some semantic drift in legitimate textbook questions. This value is configurable via the `DISTANCE_THRESHOLD` environment variable for corpus-specific tuning.
+
+### Why Not LLM-Based Refusal?
+
+LLM-based refusal (asking the model "is this answerable?") has several drawbacks:
+- Consumes an API call even for obvious out-of-domain queries
+- Adds ~1-2s latency
+- LLMs sometimes override their own refusal instructions
+
+The distance threshold provides deterministic, zero-cost, zero-latency refusal.
+
+---
+
+## Authentication and Session Management
+
+### Authentication Flow
+
+1. User registers with email + password
+2. Password is hashed with bcrypt and stored in SQLite
+3. On login, a JWT token is created and set as an httponly cookie
+4. The first registered user automatically receives the `admin` role
+5. Subsequent users receive the `customer` role
+6. Admin users can upload PDFs and manage the library
+7. Customer users can chat and view the library (read-only)
+
+### Session Persistence
+
+- Each chat conversation is a "session" stored in SQLite
+- Messages (both user and assistant) are stored with their citations
+- Sessions survive page refreshes and browser restarts
+- The conversation context window (last 10 turns) is loaded from the session for query rewriting
+
+---
+
+## Data Storage
+
+| Component | Technology | Persistence |
+|:---|:---|:---|
+| Vector embeddings | ChromaDB | `./data/chroma/` directory |
+| User accounts, sessions, chat history | SQLite | `./data/scholar.db` |
+| BM25 keyword index | Pickle serialization | `./data/bm25_index.pkl` |
+| Uploaded PDF files | Local filesystem | `./data/pdfs/` |
+
+All storage is file-based under a single `./data/` directory, mapped to a Docker volume or Railway persistent storage.
+
+---
+
+## Frontend Architecture
+
+### Design System: Daylight Studio
+
+The frontend implements the "Daylight Studio" design system - a high-clarity academic workspace with:
+- Lavender-tinted white canvas (`#faf8ff`)
+- Hairline borders instead of shadows
+- Royal Blue primary actions
+- Subject color-coding (Maths=Blue, Science=Emerald, Social Science=Amber)
+- Plus Jakarta Sans headlines, Inter body text, JetBrains Mono for code
+
+### Component Architecture
+
+```
+AppLayout
+  +-- Sidebar (260px, fixed left)
+  +-- TopAppBar (sticky, backdrop-blur)
+  +-- Page Content
+      +-- LandingPage (3D hero, ambient gradient)
+      +-- ChatPage
+      |   +-- ChatView
+      |   |   +-- ChatMessage (user/assistant)
+      |   |   +-- CitationPill
+      |   |   +-- RetrievalIndicator
+      |   +-- ChatInput (floating, pill-shaped)
+      |   +-- PDFInspectorDrawer (split-view)
+      +-- LibraryPage
+      |   +-- FilterChips
+      |   +-- LibraryGrid
+      |   |   +-- DocumentCard (subject-coded)
+      |   +-- UploadZone (admin only)
+      +-- SettingsPage
+      +-- LoginPage
+```
+
+### Performance Optimizations
+
+- **Lazy-loaded 3D**: `@react-three/fiber` bundle loads only on the landing page via `React.lazy()`
+- **SSE Streaming**: Chat responses stream token-by-token via `EventSource`
+- **Reduced Motion**: `prefers-reduced-motion` disables 3D rotation and ambient gradient drift
+- **Virtualized rendering**: Long chat histories are efficiently rendered
+
+---
+
+## Deployment Architecture
+
+```
+Railway Project
+  +-- Backend Service
+  |   +-- FastAPI (Dockerfile)
+  |   +-- Persistent Volume: /app/data
+  |   +-- Environment variables
+  +-- Frontend Service
+      +-- Nginx serving built React app (Dockerfile)
+      +-- Build arg: VITE_API_URL -> backend URL
+```
+
+Both services deploy from the same GitHub repository with different root directories (`backend/` and `frontend/`).

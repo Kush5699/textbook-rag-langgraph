@@ -1,33 +1,47 @@
-FROM python:3.12-slim
+# Multi-stage build for GSSTB Scholar Fullstack on Render
+# Stage 1: Build React Frontend
+FROM node:20-slim AS frontend-builder
+WORKDIR /app/frontend
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PYTHONPATH=/app
+COPY frontend/package*.json ./
+RUN npm install
 
+COPY frontend/ ./
+RUN npm run build
+
+# Stage 2: Python Backend with EasyOCR and dependencies
+FROM python:3.11-slim AS runner
 WORKDIR /app
 
-# Poppler and Tesseract make scanned textbook PDFs usable through OCR.
+# Install system dependencies for OpenCV and PyMuPDF
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    poppler-utils \
-    tesseract-ocr \
-    tesseract-ocr-eng \
-    tesseract-ocr-guj \
+    build-essential \
+    libgl1 \
+    libglib2.0-0 \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-RUN pip install --upgrade pip && pip install -r requirements.txt
+# Install Python dependencies
+COPY backend/requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Opt in for a full local CrossEncoder reranker with:
-# docker build --build-arg INSTALL_RERANKER=true .
-ARG INSTALL_RERANKER=false
-COPY requirements-reranker.txt .
-RUN if [ "$INSTALL_RERANKER" = "true" ]; then pip install -r requirements-reranker.txt; fi
+# Copy backend code
+COPY backend/ /app/backend/
 
-COPY app ./app
-COPY tests ./tests
-RUN mkdir -p /app/data /app/uploads && useradd --create-home appuser && chown -R appuser:appuser /app
-USER appuser
+# Copy compiled frontend from Stage 1 into backend static directory
+COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist
 
-EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
+# Set working directory to backend
+WORKDIR /app/backend
+
+# Create persistent data directories
+RUN mkdir -p /app/backend/data/pdfs /app/backend/data/chroma /app/backend/data/bm25
+
+# Environment configuration
+ENV PORT=8001
+ENV PYTHONUNBUFFERED=1
+
+EXPOSE 8001
+
+# Start Uvicorn server
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8001}"]

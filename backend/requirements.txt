@@ -1,0 +1,43 @@
+# Core
+fastapi
+uvicorn[standard]
+sse-starlette
+pydantic-settings
+python-multipart
+
+# PDF Processing & OCR
+PyMuPDF
+Pillow
+easyocr
+opencv-python-headless
+pytesseract
+
+# Vector & Search
+chromadb
+sentence-transformers
+rank-bm25
+
+# LLM
+groq
+
+# LangChain & LangGraph
+langchain>=0.3.0
+langchain-core>=0.3.0
+langchain-groq>=0.2.0
+langchain-chroma>=0.2.0
+langchain-community>=0.3.0
+langgraph>=0.2.0
+
+# Auth (Firebase token verification via PyJWT + Google public certs)
+PyJWT[crypto]
+cryptography
+
+# Utilities
+python-dotenv
+httpx
+aiofiles
+aiosqlite
+
+# Testing
+pytest
+pytest-asyncio

@@ -1,14 +1,66 @@
+# Environment
 .env
-.venv/
+.env.local
+.env.production
+backend/.env
+
+# Python
 __pycache__/
+*/__pycache__/
+*/*/__pycache__/
 *.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
 .pytest_cache/
-.ruff_cache/
+.mypy_cache/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Data directory and local databases
 data/
-uploads/
-*.sqlite3
+backend/data/
+backend/chroma_db/
 *.db
-.DS_Store
+*.sqlite
+*.sqlite3
+*.pkl
+
+# Heavy local PDF textbook libraries
 English Medium/
 Std-9 Gujarati Books/
+*.pdf
+
+# Node
+node_modules/
+frontend/node_modules/
+
+# Build outputs
+frontend/dist/
+dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+backend/*.log
+
+# Stitch export & temp assets
+stitch_gsstb_scholar_assistant/
+stitch_gsstb_scholar_assistant.zip
 Page-*.png
+backend/reingest_maths.py
