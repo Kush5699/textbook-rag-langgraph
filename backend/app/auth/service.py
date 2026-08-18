@@ -67,24 +67,33 @@ def verify_firebase_token(id_token: str) -> dict:
 async def sync_user(db: aiosqlite.Connection, firebase_uid: str, email: str) -> dict:
     """
     Sync a Firebase user to the local database.
-    Creates a new record on first login. First user becomes admin.
+    Creates a new record on first login or handles concurrent insertion gracefully.
+    First user becomes admin.
     Returns the local user record as a dict.
     """
-    # Check if user already exists
+    # 1. Check if user exists by firebase_uid or email
     async with db.execute(
-        "SELECT * FROM users WHERE firebase_uid = ?", (firebase_uid,)
+        "SELECT * FROM users WHERE firebase_uid = ? OR (email = ? AND email != '')",
+        (firebase_uid, email)
     ) as cursor:
         existing = await cursor.fetchone()
         if existing:
+            # If email matched but firebase_uid was updated, update it
+            if existing["firebase_uid"] != firebase_uid:
+                await db.execute(
+                    "UPDATE users SET firebase_uid = ? WHERE id = ?",
+                    (firebase_uid, existing["id"])
+                )
+                await db.commit()
             return {
                 "id": existing["id"],
-                "firebase_uid": existing["firebase_uid"],
+                "firebase_uid": firebase_uid,
                 "email": existing["email"],
                 "role": existing["role"],
                 "created_at": str(existing["created_at"]),
             }
 
-    # First user becomes admin
+    # 2. Check if this is the first user in the database (admin)
     async with db.execute("SELECT COUNT(*) as count FROM users") as cursor:
         row = await cursor.fetchone()
         is_first_user = row["count"] == 0
@@ -92,12 +101,34 @@ async def sync_user(db: aiosqlite.Connection, firebase_uid: str, email: str) -> 
     role = "admin" if is_first_user else "customer"
     user_id = str(uuid.uuid4())
 
-    await db.execute(
-        "INSERT INTO users (id, firebase_uid, email, role) VALUES (?, ?, ?, ?)",
-        (user_id, firebase_uid, email, role),
-    )
-    await db.commit()
-    logger.info(f"Created new user: {email} with role: {role}")
+    try:
+        await db.execute(
+            """
+            INSERT INTO users (id, firebase_uid, email, role) 
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(email) DO UPDATE SET firebase_uid = excluded.firebase_uid
+            """,
+            (user_id, firebase_uid, email, role),
+        )
+        await db.commit()
+        logger.info(f"Created/synced user: {email} with role: {role}")
+    except Exception as e:
+        logger.warning(f"Concurrent user sync handled: {e}")
+
+    # Re-fetch the saved record
+    async with db.execute(
+        "SELECT * FROM users WHERE firebase_uid = ? OR email = ?",
+        (firebase_uid, email)
+    ) as cursor:
+        saved = await cursor.fetchone()
+        if saved:
+            return {
+                "id": saved["id"],
+                "firebase_uid": saved["firebase_uid"],
+                "email": saved["email"],
+                "role": saved["role"],
+                "created_at": str(saved["created_at"]),
+            }
 
     return {
         "id": user_id,
