@@ -31,18 +31,31 @@ def get_easyocr_reader():
 def extract_text_from_pdf(file_path: str):
     """
     Extracts text and structured tables page by page using PyMuPDF.
-    1. Extracts native digital text and structured Markdown tables.
-    2. Uses OCR only when necessary, with strict memory management.
+    1. Robustly samples throughout the book to detect digital text.
+    2. Extracts digital text and tables directly with zero memory overhead.
+    3. Uses OCR fallback only for purely scanned image textbooks.
     """
     doc = pymupdf.open(file_path)
     pages_data = []
+    total_pages = len(doc)
 
-    # Quick heuristic check: Is this overall a digital PDF with searchable text?
-    sample_pages = [doc[i] for i in range(min(15, len(doc))) if i % 2 == 0]
-    has_digital_text = sum(len(p.get_text("text").strip()) for p in sample_pages) > 300
+    # Sample middle and later pages across the book body (avoids blank cover/copyright pages)
+    sample_ratios = [0.15, 0.30, 0.45, 0.60, 0.75, 0.85]
+    sample_indices = [int(total_pages * r) for r in sample_ratios] if total_pages >= 10 else list(range(total_pages))
+    
+    total_sample_chars = 0
+    for idx in sample_indices:
+        if idx < total_pages:
+            try:
+                total_sample_chars += len(doc[idx].get_text("text").strip())
+            except Exception:
+                pass
+                
+    has_digital_text = total_sample_chars > 150
+    logger.info(f"PDF Extraction: '{file_path}' ({total_pages} pages) - Digital Text Detected: {has_digital_text} ({total_sample_chars} sample chars)")
 
     try:
-        for page_num in range(len(doc)):
+        for page_num in range(total_pages):
             page = doc[page_num]
             
             # 1. Extract regular digital text
@@ -63,11 +76,11 @@ def extract_text_from_pdf(file_path: str):
             except Exception as tab_err:
                 logger.debug(f"Table extraction skipped for page {page_num + 1}: {tab_err}")
 
-            # 3. Only run OCR if the document is actually a scanned PDF (or text is empty in a scanned doc)
-            if len(text) < 40 and not has_digital_text:
+            # 3. Only run OCR if the document is a pure scanned book with zero digital text
+            if len(text) < 30 and not has_digital_text:
                 if TESSERACT_AVAILABLE:
                     try:
-                        pix = page.get_pixmap(dpi=120)
+                        pix = page.get_pixmap(dpi=100)
                         img = Image.open(io.BytesIO(pix.tobytes()))
                         ocr_text = pytesseract.image_to_string(img, lang="eng")
                         if ocr_text.strip():
@@ -81,7 +94,7 @@ def extract_text_from_pdf(file_path: str):
                         try:
                             import torch
                             with torch.no_grad():
-                                pix = page.get_pixmap(dpi=100)
+                                pix = page.get_pixmap(dpi=90)
                                 ocr_lines = reader.readtext(pix.tobytes(), detail=0)
                                 if ocr_lines:
                                     text = " ".join(ocr_lines).strip()
@@ -89,8 +102,8 @@ def extract_text_from_pdf(file_path: str):
                         except Exception as eocr_err:
                             logger.debug(f"EasyOCR error on page {page_num + 1}: {eocr_err}")
 
-            # Periodic garbage collection to prevent memory spikes on small 512MB instances
-            if page_num > 0 and page_num % 25 == 0:
+            # Periodic garbage collection
+            if page_num > 0 and page_num % 30 == 0:
                 gc.collect()
             
             pages_data.append({
