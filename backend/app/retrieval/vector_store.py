@@ -5,24 +5,33 @@ logger = logging.getLogger(__name__)
 
 _chroma_client = None
 _collection = None
+_onnx_fn = None
+
+
+def get_embedding_fn():
+    """Lazily load ultra-lightweight ONNX MiniLM embedder (< 25MB RAM)."""
+    global _onnx_fn
+    if _onnx_fn is None:
+        from chromadb.utils import embedding_functions
+        _onnx_fn = embedding_functions.ONNXMiniLM_L6_V2()
+    return _onnx_fn
 
 
 def get_collection():
-    """Lazily initialize ChromaDB client and collection with ultra-lightweight ONNX MiniLM (< 25MB RAM)."""
+    """Lazily initialize ChromaDB client and retrieve collection."""
     global _chroma_client, _collection
     if _collection is None:
         import chromadb
-        from chromadb.utils import embedding_functions
-        
-        logger.info(f"Initializing ChromaDB with C++ ONNX Runtime at {settings.CHROMA_PERSIST_DIR}")
+        logger.info(f"Initializing ChromaDB client at {settings.CHROMA_PERSIST_DIR}")
         _chroma_client = chromadb.PersistentClient(path=settings.CHROMA_PERSIST_DIR)
-        emb_fn = embedding_functions.ONNXMiniLM_L6_V2()
         
-        _collection = _chroma_client.get_or_create_collection(
-            name="gsstb_chunks",
-            embedding_function=emb_fn,
-            metadata={"hnsw:space": "cosine"}
-        )
+        try:
+            _collection = _chroma_client.get_collection(name="gsstb_chunks")
+        except Exception:
+            _collection = _chroma_client.create_collection(
+                name="gsstb_chunks",
+                metadata={"hnsw:space": "cosine"}
+            )
     return _collection
 
 
@@ -31,15 +40,19 @@ def add_chunks_to_vector_store(chunks: list, batch_size: int = 150):
         return
     
     col = get_collection()
+    fn = get_embedding_fn()
+    
     # Process in batches to maintain high throughput and prevent memory spikes
     for i in range(0, len(chunks), batch_size):
         batch = chunks[i:i + batch_size]
         ids = [c["chunk_id"] for c in batch]
         texts = [c["text"] for c in batch]
         metadatas = [c["metadata"] for c in batch]
+        embeddings = fn(texts)
         
         col.upsert(
             ids=ids,
+            embeddings=embeddings,
             documents=texts,
             metadatas=metadatas
         )
@@ -48,6 +61,9 @@ def add_chunks_to_vector_store(chunks: list, batch_size: int = 150):
 
 def query_vector_store(query: str, filters: dict, top_k: int = settings.TOP_K_VECTOR):
     col = get_collection()
+    fn = get_embedding_fn()
+    query_vector = fn([query])[0]
+    
     where = {}
     if filters:
         if len(filters) == 1:
@@ -72,7 +88,7 @@ def query_vector_store(query: str, filters: dict, top_k: int = settings.TOP_K_VE
             where = {"$and": and_filters} if and_filters else {}
 
     results = col.query(
-        query_texts=[query],
+        query_embeddings=[query_vector],
         n_results=top_k,
         where=where if where else None,
         include=["documents", "metadatas", "distances"]
