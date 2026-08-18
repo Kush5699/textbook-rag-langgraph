@@ -9,7 +9,7 @@ RUN npm install
 COPY frontend/ ./
 RUN npm run build
 
-# Stage 2: Ultra-lightweight Python Backend with Native C++ Tesseract OCR
+# Stage 2: Ultra-lightweight Python Backend with Pre-Cached Embeddings & Tesseract OCR
 FROM python:3.11-slim AS runner
 WORKDIR /app
 
@@ -22,12 +22,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install PyTorch CPU-only first (saves ~700MB disk/RAM compared to CUDA build)
+# Install PyTorch CPU-only
 RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
 
 # Install remaining Python dependencies
 COPY backend/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Pre-cache SentenceTransformer model inside Docker image so queries never wait for HuggingFace downloads
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
 
 # Copy backend code
 COPY backend/ /app/backend/

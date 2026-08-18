@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 import logging
 import os
 import shutil
+import asyncio
 from .database import init_db
 from .config import settings
 
@@ -21,6 +22,17 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+
+async def warmup_retrieval_models():
+    """Pre-warm ChromaDB and SentenceTransformer in background so first query has zero latency."""
+    try:
+        await asyncio.sleep(2)
+        from .retrieval.vector_store import get_collection
+        get_collection()
+        logger.info("ChromaDB vector store and embedding models pre-warmed successfully.")
+    except Exception as e:
+        logger.warning(f"Retrieval warmup notice: {e}")
 
 
 @asynccontextmanager
@@ -54,6 +66,9 @@ async def lifespan(app: FastAPI):
 
     init_db()
     logger.info("Database initialized successfully.")
+
+    # Warm up retrieval models so first query executes in milliseconds
+    asyncio.create_task(warmup_retrieval_models())
 
     yield
     logger.info("Shutting down GSSTB Scholar Backend")

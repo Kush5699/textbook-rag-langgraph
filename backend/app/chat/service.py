@@ -29,7 +29,7 @@ def _generate_session_title(query: str) -> str:
     """Generate a clean session title from the query."""
     stop_words = {
         "what", "are", "the", "is", "can", "you", "please", "pls",
-        "tell", "me", "about", "how", "to", "explain",
+        "tell", "me", "about", "how", "to", "explain", "provide",
     }
     clean_words = [
         w for w in query.replace("?", "").replace(".", "").split()
@@ -50,9 +50,10 @@ async def process_chat(db, session_id: str, user_message: str, user_id: str):
     2. Get conversation history and convert to LangChain format
     3. Auto-update session title if default
     4. Run the LangGraph RAG agent (rewrite -> filter -> retrieve -> grade -> generate -> hallucination check)
-    5. Stream the response via SSE events
+    5. Save assistant response to DB immediately (persists even if user leaves the tab)
+    6. Stream the response via SSE events
     """
-    # 1. Save user message
+    # 1. Save user message immediately
     await add_message(db, session_id, "user", user_message)
 
     # 2. Get conversation history
@@ -94,7 +95,14 @@ async def process_chat(db, session_id: str, user_message: str, user_id: str):
     citations = result.get("citations", [])
     refused = result.get("refused", False)
 
-    # 5. Stream the response via SSE
+    # 5. CRITICAL: Save assistant response to SQLite immediately so that even if the user
+    # switches tabs or navigates away during stream, the message is permanently saved!
+    await add_message(
+        db, session_id, "assistant", generation,
+        citations=citations, refused=refused,
+    )
+
+    # 6. Stream the response via SSE
     async def generation_stream():
         # Stream the generation in small word-chunks for smooth SSE streaming
         chunk_size = 4  # words per chunk
@@ -114,11 +122,5 @@ async def process_chat(db, session_id: str, user_message: str, user_id: str):
                 "session_title": new_session_title or current_title,
             },
         })
-
-        # Save assistant response to DB
-        await add_message(
-            db, session_id, "assistant", generation,
-            citations=citations, refused=refused,
-        )
 
     return generation_stream()
