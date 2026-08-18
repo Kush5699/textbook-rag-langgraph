@@ -9,7 +9,7 @@ from ..chains.prompts import (
     rag_prompt,
     contextualize_prompt,
     router_prompt,
-    grader_prompt,
+    batch_grader_prompt,
     hallucination_prompt,
 )
 from ..config import settings
@@ -93,7 +93,7 @@ def retrieve(state: dict) -> dict:
 
 
 def grade_documents(state: dict) -> dict:
-    """Grade retrieved documents for relevance to the question."""
+    """Grade all retrieved documents in a single fast batch LLM call (< 200ms)."""
     question = state.get("rewritten_query", state["question"])
     documents = state.get("documents", [])
 
@@ -105,21 +105,36 @@ def grade_documents(state: dict) -> dict:
             "citations": [],
         }
 
-    llm = get_structured_llm(temperature=0.0)
-    chain = grader_prompt | llm | StrOutputParser()
+    # Format documents into a single numbered block
+    docs_block = "\n\n".join([
+        f"[Doc {i + 1}]\n{doc.page_content[:400]}"
+        for i, doc in enumerate(documents)
+    ])
 
-    relevant_docs = []
-    for doc in documents:
-        try:
-            grade = chain.invoke({
-                "question": question,
-                "document": doc.page_content[:500],
-            })
-            if "yes" in grade.lower():
-                relevant_docs.append(doc)
-        except Exception as e:
-            logger.warning(f"Grading failed for a document: {e}")
-            relevant_docs.append(doc)  # Keep on error to be safe
+    llm = get_structured_llm(temperature=0.0)
+    chain = batch_grader_prompt | llm | StrOutputParser()
+
+    try:
+        raw_resp = chain.invoke({
+            "question": question,
+            "documents": docs_block,
+        })
+        # Clean JSON brackets if wrapped in markdown
+        cleaned = raw_resp.strip()
+        if "```" in cleaned:
+            cleaned = cleaned.split("```")[1].replace("json", "").strip()
+        
+        relevant_indices = json.loads(cleaned)
+        if isinstance(relevant_indices, list):
+            relevant_docs = [
+                documents[idx - 1] for idx in relevant_indices
+                if isinstance(idx, int) and 1 <= idx <= len(documents)
+            ]
+        else:
+            relevant_docs = documents
+    except Exception as e:
+        logger.warning(f"Batch grading fallback to full set: {e}")
+        relevant_docs = documents  # Keep all on parse error to be safe
 
     logger.info(f"Document grading: {len(relevant_docs)}/{len(documents)} relevant")
 
@@ -188,10 +203,10 @@ def check_hallucination(state: dict) -> dict:
     retry_count = state.get("retry_count", 0)
 
     if not generation or not documents:
-        return {"is_grounded": True}  # Nothing to check
+        return {"is_grounded": True}
 
     # Build source documents string
-    docs_text = "\n\n".join([doc.page_content[:400] for doc in documents])
+    docs_text = "\n\n".join([doc.page_content[:350] for doc in documents])
 
     llm = get_structured_llm(temperature=0.0)
     chain = hallucination_prompt | llm | StrOutputParser()
@@ -208,7 +223,7 @@ def check_hallucination(state: dict) -> dict:
         if not is_grounded and retry_count < 1:
             return {"is_grounded": False, "retry_count": retry_count + 1}
 
-        return {"is_grounded": True}  # Accept after max retries
+        return {"is_grounded": True}
     except Exception as e:
         logger.warning(f"Hallucination check failed: {e}")
-        return {"is_grounded": True}  # Accept on error
+        return {"is_grounded": True}

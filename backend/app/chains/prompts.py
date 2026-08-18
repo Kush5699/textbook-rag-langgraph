@@ -26,6 +26,7 @@ CONTEXTUALIZE_SYSTEM_PROMPT = """You are a search query optimizer for a Gujarat 
 Given the chat history and the user's latest question, rewrite the question into a standalone, keyword-rich search query.
 Resolve all pronouns ("it", "them", "these", "those", "this") and conversational references so the query is self-contained.
 If the question is already standalone, return it as-is but clean and focused.
+Never use em-dashes.
 Return ONLY the rewritten query string, nothing else."""
 
 contextualize_prompt = ChatPromptTemplate.from_messages([
@@ -53,16 +54,16 @@ router_prompt = ChatPromptTemplate.from_messages([
 ])
 
 
-# Prompt for grading document relevance
-GRADER_SYSTEM_PROMPT = """You are a relevance grader for a textbook RAG system.
-Given a user question and a retrieved document chunk, determine if the document is relevant to answering the question.
-Respond with ONLY "yes" or "no".
-- "yes" means the document contains information useful for answering the question.
-- "no" means the document is not relevant."""
+# Prompt for batch grading all retrieved documents in a single fast LLM call
+BATCH_GRADER_SYSTEM_PROMPT = """You are an ultra-fast relevance grader for a textbook RAG system.
+Given a user question and a numbered list of candidate document excerpts, identify which documents contain useful information to answer the question.
+Return ONLY a valid JSON array containing the 1-indexed numbers of the relevant documents, for example: [1, 2, 4].
+If none are relevant, return: [].
+Do NOT write any explanation, return ONLY the JSON array."""
 
-grader_prompt = ChatPromptTemplate.from_messages([
-    ("system", GRADER_SYSTEM_PROMPT),
-    ("human", "User question: {question}\n\nRetrieved document:\n{document}"),
+batch_grader_prompt = ChatPromptTemplate.from_messages([
+    ("system", BATCH_GRADER_SYSTEM_PROMPT),
+    ("human", "Question: {question}\n\nCandidate Documents:\n{documents}"),
 ])
 
 
