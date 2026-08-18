@@ -22,20 +22,18 @@ venv/
 .venv/
 env/
 
-# Data directory and local databases
+# Runtime Data directory (ephemeral working data)
 data/
 backend/data/
 backend/chroma_db/
-*.db
-*.sqlite
-*.sqlite3
-*.pkl
+
+# Keep pre-indexed seed data tracked
+!backend/seed_data/
+!backend/seed_data/**
 
 # Heavy local PDF textbook libraries
 English Medium/
 Std-9 Gujarati Books/
-*.pdf
-!backend/sample_pdfs/*.pdf
 
 # Node
 node_modules/
