@@ -47,12 +47,12 @@ async def process_pdf_ingestion(db_path: str, doc_id: str, file_path: str, filen
         del pages_data
         gc.collect()
 
-        # 5. Embed and Index
+        # 5. Embed and Index (Batch size 35 to stay strictly below 512MB RAM)
         from ..retrieval.vector_store import add_chunks_to_vector_store
         from ..retrieval.bm25_store import bm25_index
         
-        # Add to vector store in memory-friendly batches
-        await asyncio.to_thread(add_chunks_to_vector_store, chunks, 100)
+        # Add to vector store in small conservative batches
+        await asyncio.to_thread(add_chunks_to_vector_store, chunks, 35)
         # Add to BM25
         await asyncio.to_thread(bm25_index.add_chunks, chunks)
         
