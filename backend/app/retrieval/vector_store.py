@@ -8,15 +8,15 @@ _collection = None
 
 
 def get_collection():
-    """Lazily initialize ChromaDB client and collection on first request to minimize boot RAM."""
+    """Lazily initialize ChromaDB client and collection with ultra-lightweight ONNX MiniLM (< 25MB RAM)."""
     global _chroma_client, _collection
     if _collection is None:
         import chromadb
         from chromadb.utils import embedding_functions
         
-        logger.info(f"Initializing ChromaDB client at {settings.CHROMA_PERSIST_DIR}")
+        logger.info(f"Initializing ChromaDB with C++ ONNX Runtime at {settings.CHROMA_PERSIST_DIR}")
         _chroma_client = chromadb.PersistentClient(path=settings.CHROMA_PERSIST_DIR)
-        emb_fn = embedding_functions.SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
+        emb_fn = embedding_functions.ONNXMiniLM_L6_V2()
         
         _collection = _chroma_client.get_or_create_collection(
             name="gsstb_chunks",

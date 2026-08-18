@@ -12,9 +12,9 @@ easyocr
 opencv-python-headless
 pytesseract
 
-# Vector & Search
+# Vector & Search (ONNX Runtime for ultra-low memory < 25MB RAM vector embeddings)
 chromadb
-sentence-transformers
+onnxruntime
 rank-bm25
 
 # LLM
