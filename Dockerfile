@@ -9,19 +9,21 @@ RUN npm install
 COPY frontend/ ./
 RUN npm run build
 
-# Stage 2: Python Backend with EasyOCR and dependencies
+# Stage 2: Ultra-lightweight Python Backend (Memory-Optimized for 512MB RAM)
 FROM python:3.11-slim AS runner
 WORKDIR /app
 
-# Install system dependencies for OpenCV and PyMuPDF
+# Install lightweight system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
     libgl1 \
     libglib2.0-0 \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
+# Install PyTorch CPU-only first (saves ~700MB disk/RAM compared to CUDA build)
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+# Install remaining Python dependencies
 COPY backend/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
@@ -37,11 +39,14 @@ WORKDIR /app/backend
 # Create persistent data directories
 RUN mkdir -p /app/backend/data/pdfs /app/backend/data/chroma /app/backend/data/bm25
 
-# Environment configuration
+# Low-memory environment optimizations
 ENV PORT=8001
 ENV PYTHONUNBUFFERED=1
+ENV OMP_NUM_THREADS=1
+ENV MKL_NUM_THREADS=1
+ENV TORCH_NUM_THREADS=1
 
 EXPOSE 8001
 
-# Start Uvicorn server
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8001}"]
+# Start Uvicorn single-worker server on assigned Render PORT
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8001} --workers 1"]
