@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
@@ -6,10 +6,16 @@ import { clsx } from 'clsx';
 import Icon from '../common/Icon';
 import StreamingCursor from './StreamingCursor';
 import CitationPill from './CitationPill';
+import { formatMathematicalText } from '../../utils/textFormatter';
 
 export default function ChatMessage({ message, isStreaming, isAdmin = false, onCitationClick }) {
   const isUser = message.role === 'user';
   const citations = message.citations || [];
+
+  const displayContent = useMemo(() => {
+    if (isUser) return message.content;
+    return formatMathematicalText(message.content);
+  }, [message.content, isUser]);
 
   return (
     <div className={clsx('flex w-full', isUser ? 'justify-end' : 'justify-start')}>
@@ -23,27 +29,27 @@ export default function ChatMessage({ message, isStreaming, isAdmin = false, onC
 
         <div className="space-y-2">
           <div className={clsx(
-            'p-4 text-base',
+            'p-4 text-base leading-relaxed',
             isUser 
-              ? 'bg-surface-container-low text-on-surface rounded-2xl rounded-tr-sm border border-outline-variant/30'
+              ? 'bg-surface-container-low text-on-surface rounded-2xl rounded-tr-sm border border-outline-variant/30 font-medium'
               : 'bg-surface-container-lowest text-on-surface rounded-2xl rounded-tl-sm border border-outline-variant shadow-sm'
           )}>
             {isUser ? (
               <div className="whitespace-pre-wrap">{message.content}</div>
             ) : (
-              <div className="prose prose-sm max-w-none">
+              <div className="prose prose-sm md:prose-base max-w-none prose-headings:font-semibold prose-headings:text-primary prose-p:my-2 prose-ul:my-2 prose-li:my-0.5 prose-strong:text-on-surface prose-strong:font-semibold">
                 <ReactMarkdown 
                   remarkPlugins={[remarkMath]} 
                   rehypePlugins={[rehypeKatex]}
                 >
-                  {message.content}
+                  {displayContent}
                 </ReactMarkdown>
                 {isStreaming && <StreamingCursor />}
               </div>
             )}
           </div>
 
-          {/* Citation pills - only show for assistant messages with citations */}
+          {/* Citation pills */}
           {!isUser && citations.length > 0 && !isStreaming && (
             <div className="flex flex-wrap gap-2 pl-1 pt-0.5">
               {citations.map((cit, idx) => (
