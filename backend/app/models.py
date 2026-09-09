@@ -7,7 +7,18 @@ class UserResponse(BaseModel):
     id: str
     email: str
     role: str
+    name: Optional[str] = ""
+    username: Optional[str] = ""
+    standard: Optional[str] = ""
+    school: Optional[str] = ""
     created_at: str
+
+
+class UserProfileUpdate(BaseModel):
+    name: Optional[str] = None
+    username: Optional[str] = None
+    standard: Optional[str] = None
+    school: Optional[str] = None
 
 
 class MessageCreate(BaseModel):

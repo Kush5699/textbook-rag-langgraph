@@ -55,10 +55,6 @@ export default function ChatInput({ onSend, disabled }) {
   return (
     <div className="w-full">
       <div className="relative flex items-end bg-surface-container-lowest rounded-3xl border border-outline-variant shadow-[0_4px_12px_rgba(0,0,0,0.04)] p-2 transition-shadow focus-within:shadow-[0_8px_24px_rgba(0,0,0,0.08)] focus-within:border-primary/30">
-        <button className="p-3 text-on-surface-variant hover:text-primary transition-colors rounded-full flex-shrink-0">
-          <Icon name="attach_file" />
-        </button>
-        
         <textarea
           ref={textareaRef}
           value={content}
@@ -66,7 +62,7 @@ export default function ChatInput({ onSend, disabled }) {
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
           placeholder="Ask a question about your textbooks..."
-          className="flex-1 max-h-[200px] bg-transparent border-none focus:outline-none resize-none py-3 px-2 text-base text-on-surface placeholder:text-on-surface-variant/60"
+          className="flex-1 max-h-[200px] bg-transparent border-none focus:outline-none resize-none py-3 px-4 text-base text-on-surface placeholder:text-on-surface-variant/60"
           rows={1}
           disabled={disabled}
         />

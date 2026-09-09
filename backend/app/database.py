@@ -17,9 +17,24 @@ def init_db():
             firebase_uid TEXT UNIQUE,
             email TEXT UNIQUE,
             role TEXT,
+            name TEXT DEFAULT '',
+            username TEXT DEFAULT '',
+            standard TEXT DEFAULT '',
+            school TEXT DEFAULT '',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    
+    # Auto-migrate existing database tables if new columns don't exist
+    cursor.execute("PRAGMA table_info(users)")
+    existing_cols = {row[1] for row in cursor.fetchall()}
+    for col, col_type in [("name", "TEXT DEFAULT ''"), ("username", "TEXT DEFAULT ''"), ("standard", "TEXT DEFAULT ''"), ("school", "TEXT DEFAULT ''")]:
+        if col not in existing_cols:
+            try:
+                cursor.execute(f"ALTER TABLE users ADD COLUMN {col} {col_type}")
+            except Exception as e:
+                logger.warning(f"Column migration warning for {col}: {e}")
+
     
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS sessions (

@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import Icon from '../common/Icon';
 import { useChat } from '../../contexts/ChatContext';
 import { clsx } from 'clsx';
@@ -47,11 +47,15 @@ export default function Sidebar({ isOpen = true, onClose }) {
   return (
     <aside className="w-[270px] flex flex-col bg-surface border-r border-outline-variant h-screen sticky top-0 flex-shrink-0 z-30 shadow-sm transition-all duration-200">
       <div className="p-5 pb-3">
-        <div className="flex items-center justify-between">
-          <h1 className="text-base text-primary flex items-center gap-2 font-display font-bold">
+        <Link 
+          to="/app/chat" 
+          className="flex items-center gap-2 group cursor-pointer focus:outline-none"
+          title="Go to Research Chat Dashboard"
+        >
+          <h1 className="text-base text-primary flex items-center gap-2 font-display font-bold group-hover:opacity-90 transition-opacity">
             <Icon name="school" /> GSSTB Scholar
           </h1>
-        </div>
+        </Link>
         <p className="text-xs text-on-surface-variant mt-0.5">Gujarat State Board RAG</p>
       </div>
       

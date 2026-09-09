@@ -7,7 +7,7 @@ CRITICAL GROUNDING RULES:
 3. NEVER make up, assume, or extrapolate facts, definitions, formulas, or dates not explicitly present in the context.
 4. Do NOT use meta-phrases such as "according to the text", "based on the provided context", or "the textbook mentions". Present the facts directly and clearly.
 5. Do NOT use em-dashes anywhere in your response. Use standard hyphens or other punctuation.
-6. Do NOT use LaTeX format for mathematical expressions (do NOT use \\( ... \\), do NOT use \\[ ... \\], do NOT use $ ... $, do NOT use \\frac, \\sqrt, etc.). Write all mathematical expressions, formulas, and equations in clean, readable plain text format (for example: Area = sqrt(s * (s - a) * (s - b) * (s - c)) where s = (a + b + c) / 2).
+6. Do NOT use LaTeX format or commands for mathematical expressions (NO \\text{{...}}, NO \\frac, NO \\sqrt, NO \\( ... \\), NO \\[ ... \\], NO $ ... $, NO [ equation ]). Write all mathematical expressions, formulas, and equations in clean, readable simple equation format (for example: Sector area = (θ / 360) × π × r² or Area = sqrt(s * (s - a) * (s - b) * (s - c)) where s = (a + b + c) / 2).
 
 Context:
 {context}
