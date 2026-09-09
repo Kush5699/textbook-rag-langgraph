@@ -5,30 +5,30 @@
 /* CSS Variables for Light & Dark Theme */
 :root {
   color-scheme: light;
-  --surface: 250 248 255;
-  --surface-dim: 210 217 244;
-  --surface-bright: 250 248 255;
+  --surface: 255 255 255;
+  --surface-dim: 242 243 250;
+  --surface-bright: 255 255 255;
   --surface-container-lowest: 255 255 255;
-  --surface-container-low: 242 243 255;
-  --surface-container: 234 237 255;
-  --surface-container-high: 225 231 255;
-  --surface-container-highest: 218 226 252;
-  --on-surface: 19 27 46;
-  --on-surface-variant: 67 70 84;
-  --inverse-surface: 40 48 68;
-  --inverse-on-surface: 238 240 255;
-  --outline: 115 118 133;
-  --outline-variant: 195 198 214;
-  --surface-tint: 27 85 208;
-  --primary: 0 53 148;
+  --surface-container-low: 248 249 253;
+  --surface-container: 242 244 250;
+  --surface-container-high: 234 237 246;
+  --surface-container-highest: 226 230 242;
+  --on-surface: 19 24 38;
+  --on-surface-variant: 84 88 104;
+  --inverse-surface: 35 38 48;
+  --inverse-on-surface: 245 246 252;
+  --outline: 140 144 160;
+  --outline-variant: 218 221 232;
+  --surface-tint: 69 79 186;
+  --primary: 69 79 186; /* #454fba: Lavender 500 */
   --on-primary: 255 255 255;
-  --primary-container: 0 74 198;
-  --on-primary-container: 184 200 255;
-  --secondary: 0 108 74;
-  --secondary-container: 154 241 198;
-  --on-secondary-container: 11 113 78;
-  --background: 250 248 255;
-  --on-background: 19 27 46;
+  --primary-container: 106 114 200;
+  --on-primary-container: 255 255 255;
+  --secondary: 34 174 221;
+  --secondary-container: 209 239 248;
+  --on-secondary-container: 20 100 128;
+  --background: 255 255 255;
+  --on-background: 19 24 38;
 }
 
 /* Custom Curated Dark Palette:
@@ -40,16 +40,16 @@ html.dark,
 .dark {
   color-scheme: dark;
   
-  /* Canvas Backgrounds (Pale Slate deep shades) */
-  --background: 16 17 20;               /* #101114 (pale-slate-950: Main Canvas) */
-  --surface: 23 24 28;                  /* #17181c (pale-slate-900: Sidebar & Top App Bar) */
-  --surface-dim: 16 17 20;              /* #101114 (pale-slate-950) */
-  --surface-bright: 45 48 57;           /* #2d3039 (pale-slate-800) */
-  --surface-container-lowest: 23 24 28; /* #17181c (pale-slate-900: Chat message bubbles & Cards) */
-  --surface-container-low: 33 35 43;    /* Intermediate contrast layer */
-  --surface-container: 45 48 57;        /* #2d3039 (pale-slate-800: Hover states, input backdrop) */
-  --surface-container-high: 68 72 85;   /* #444855 (pale-slate-700: Active pill tags, elevated toggles) */
-  --surface-container-highest: 91 96 113;/* #5b6071 (pale-slate-600) */
+  /* Canvas Backgrounds (Clean, static, uniform deep dark canvas) */
+  --background: 14 15 17;               /* #0e0f11 (deep static dark: Main Canvas) */
+  --surface: 14 15 17;                  /* #0e0f11 (deep static dark: Uniform canvas) */
+  --surface-dim: 10 11 13;              /* #0a0b0d */
+  --surface-bright: 30 32 38;           /* #1e2026 */
+  --surface-container-lowest: 20 21 25; /* #141519 (Chat message bubbles & Cards) */
+  --surface-container-low: 26 28 34;    /* Intermediate layer */
+  --surface-container: 34 36 44;        /* #22242c (Hover states, input backdrop) */
+  --surface-container-high: 48 51 61;   /* #30333d (Active pill tags, elevated toggles) */
+  --surface-container-highest: 64 68 80;/* #404450 */
   
   /* Text with High Readability (Lavender-50 & Pale-Slate-200) */
   --on-surface: 236 237 248;            /* #ecedf8 (lavender-50: Crisp, elegant headings & chat text) */

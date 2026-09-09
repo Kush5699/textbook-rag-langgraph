@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 import Icon from '../components/common/Icon';
 import AmbientGradient from '../components/landing/AmbientGradient';
 
 import { validateEmail as verifyEmailWithServer } from '../api/auth';
 
 export default function LoginPage() {
+  const { isDark, toggleTheme } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -146,12 +148,26 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-surface relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-surface relative overflow-hidden transition-colors duration-200">
       <AmbientGradient />
       
-      <div className="bg-surface-container-lowest p-8 rounded-2xl shadow-lg w-full max-w-md relative z-10 border border-outline-variant/30">
-          <div className="text-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center text-on-primary mx-auto mb-4 shadow-sm">
+      {/* Theme Switcher in top right */}
+      <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-20">
+        <button
+          type="button"
+          onClick={toggleTheme}
+          className="p-2.5 px-3.5 rounded-xl bg-surface-container-lowest/80 backdrop-blur-md border border-outline-variant/40 text-on-surface-variant hover:text-primary hover:border-primary/40 shadow-sm transition-all flex items-center gap-2 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/40"
+          title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          aria-label="Toggle Theme"
+        >
+          <Icon name={isDark ? 'light_mode' : 'dark_mode'} style={{ fontSize: '18px' }} />
+          <span className="hidden sm:inline font-sans">{isDark ? 'Light' : 'Dark'}</span>
+        </button>
+      </div>
+
+      <div className="bg-surface-container-lowest p-8 rounded-2xl shadow-lg w-full max-w-md relative z-10 border border-outline-variant/30 transition-colors duration-200">
+        <div className="text-center mb-8">
+          <div className="w-14 h-14 rounded-2xl bg-primary/15 text-primary flex items-center justify-center mx-auto mb-4 shadow-sm">
             <Icon name="school" className="text-3xl" />
           </div>
           <h1 className="text-2xl font-display font-bold text-on-surface">GSSTB Scholar</h1>
@@ -198,7 +214,7 @@ export default function LoginPage() {
             <button 
               type="submit" 
               disabled={isLoading}
-              className="w-full bg-primary text-on-primary py-3 rounded-full font-medium hover:bg-primary-container hover:text-on-primary-container transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+              className="w-full bg-primary text-on-primary py-3 rounded-xl font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
             >
               {isLoading ? 'Sending...' : 'Send Password Reset Email'}
             </button>
@@ -265,7 +281,7 @@ export default function LoginPage() {
             <button 
               type="submit" 
               disabled={isLoading}
-              className="w-full bg-primary text-on-primary py-3 rounded-full font-medium hover:bg-primary-container hover:text-on-primary-container transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+              className="w-full bg-primary text-on-primary py-3 rounded-xl font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
             >
               {isLoading ? 'Please wait...' : (isRegister ? 'Create Account' : 'Sign In')}
             </button>

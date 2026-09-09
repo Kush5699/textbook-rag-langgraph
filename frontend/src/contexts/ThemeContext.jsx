@@ -4,10 +4,9 @@ const ThemeContext = createContext(null);
 
 export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState(() => {
-    // Check saved theme in localStorage or system preference
+    // Default to 'light' mode (white background) unless user explicitly saved preference
     const saved = localStorage.getItem('gsstb-theme');
-    if (saved) return saved;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    return saved === 'dark' ? 'dark' : 'light';
   });
 
   useEffect(() => {

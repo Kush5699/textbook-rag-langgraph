@@ -7,10 +7,9 @@ export default function AmbientGradient({ className = '' }) {
   const prefersReducedMotion = useReducedMotion();
   const { isDark } = useTheme();
 
-  if (prefersReducedMotion) {
-    return (
-      <div className={`absolute inset-0 z-0 bg-surface ${className}`} />
-    );
+  // In dark mode or reduced motion, disable gradient haze to keep a clean, static solid background
+  if (isDark || prefersReducedMotion) {
+    return null;
   }
 
   const lightGradients = [
