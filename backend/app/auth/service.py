@@ -90,6 +90,10 @@ async def sync_user(db: aiosqlite.Connection, firebase_uid: str, email: str) -> 
                 "firebase_uid": firebase_uid,
                 "email": existing["email"],
                 "role": existing["role"],
+                "name": existing["name"] if "name" in existing.keys() else "",
+                "username": existing["username"] if "username" in existing.keys() else "",
+                "standard": existing["standard"] if "standard" in existing.keys() else "",
+                "school": existing["school"] if "school" in existing.keys() else "",
                 "created_at": str(existing["created_at"]),
             }
 
@@ -100,15 +104,16 @@ async def sync_user(db: aiosqlite.Connection, firebase_uid: str, email: str) -> 
 
     role = "admin" if is_first_user else "customer"
     user_id = str(uuid.uuid4())
+    default_username = email.split("@")[0] if "@" in email else "student"
 
     try:
         await db.execute(
             """
-            INSERT INTO users (id, firebase_uid, email, role) 
-            VALUES (?, ?, ?, ?)
+            INSERT INTO users (id, firebase_uid, email, role, username) 
+            VALUES (?, ?, ?, ?, ?)
             ON CONFLICT(email) DO UPDATE SET firebase_uid = excluded.firebase_uid
             """,
-            (user_id, firebase_uid, email, role),
+            (user_id, firebase_uid, email, role, default_username),
         )
         await db.commit()
         logger.info(f"Created/synced user: {email} with role: {role}")
@@ -127,6 +132,10 @@ async def sync_user(db: aiosqlite.Connection, firebase_uid: str, email: str) -> 
                 "firebase_uid": saved["firebase_uid"],
                 "email": saved["email"],
                 "role": saved["role"],
+                "name": saved["name"] if "name" in saved.keys() else "",
+                "username": saved["username"] if "username" in saved.keys() else default_username,
+                "standard": saved["standard"] if "standard" in saved.keys() else "",
+                "school": saved["school"] if "school" in saved.keys() else "",
                 "created_at": str(saved["created_at"]),
             }
 
@@ -135,6 +144,10 @@ async def sync_user(db: aiosqlite.Connection, firebase_uid: str, email: str) -> 
         "firebase_uid": firebase_uid,
         "email": email,
         "role": role,
+        "name": "",
+        "username": default_username,
+        "standard": "",
+        "school": "",
         "created_at": "",
     }
 

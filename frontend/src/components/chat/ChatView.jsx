@@ -156,13 +156,13 @@ export default function ChatView() {
                 Ask a question about your Gujarat State Board textbooks to start a research session.
               </p>
               <div className="flex gap-3 mt-6 justify-center">
-                <span className="px-3 py-1.5 rounded-full bg-primary-fixed text-on-primary-fixed text-sm font-medium">
+                <span className="px-3.5 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-semibold border border-primary/20">
                   Std 9-12
                 </span>
-                <span className="px-3 py-1.5 rounded-full bg-secondary-fixed text-on-secondary-fixed text-sm font-medium">
+                <span className="px-3.5 py-1.5 rounded-full bg-secondary/10 text-secondary text-xs font-semibold border border-secondary/20">
                   Multiple Subjects
                 </span>
-                <span className="px-3 py-1.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed text-sm font-medium">
+                <span className="px-3.5 py-1.5 rounded-full bg-surface-container-highest text-on-surface-variant text-xs font-semibold border border-outline-variant">
                   Page Citations
                 </span>
               </div>

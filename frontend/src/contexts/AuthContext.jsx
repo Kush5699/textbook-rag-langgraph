@@ -3,6 +3,8 @@ import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  sendEmailVerification,
+  sendPasswordResetEmail,
   signOut,
 } from 'firebase/auth';
 import { auth } from '../firebase';
@@ -27,6 +29,10 @@ export function AuthProvider({ children }) {
         id: userData.id,
         email: firebaseUser.email,
         role: userData.role,
+        name: userData.name || '',
+        username: userData.username || (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'user'),
+        standard: userData.standard || '',
+        school: userData.school || '',
         firebaseUid: firebaseUser.uid,
       };
       setUser(fullUser);
@@ -37,6 +43,10 @@ export function AuthProvider({ children }) {
         id: firebaseUser.uid,
         email: firebaseUser.email,
         role: 'customer',
+        name: '',
+        username: firebaseUser.email ? firebaseUser.email.split('@')[0] : 'user',
+        standard: '',
+        school: '',
         firebaseUid: firebaseUser.uid,
       };
       setUser(basicUser);
@@ -73,12 +83,29 @@ export function AuthProvider({ children }) {
     setLoading(true);
     try {
       const credential = await createUserWithEmailAndPassword(auth, email, password);
+      // Send verification link to user's real email
+      try {
+        await sendEmailVerification(credential.user);
+      } catch (verifErr) {
+        console.warn('Could not send verification email:', verifErr);
+      }
       const syncedUser = await syncUserWithBackend(credential.user);
       return syncedUser;
     } finally {
       setLoading(false);
     }
   }, [syncUserWithBackend]);
+
+  const resetPassword = useCallback(async (email) => {
+    return await sendPasswordResetEmail(auth, email);
+  }, []);
+
+  const resendVerificationEmail = useCallback(async () => {
+    if (auth.currentUser) {
+      return await sendEmailVerification(auth.currentUser);
+    }
+    throw new Error('No user is currently signed in');
+  }, []);
 
   const logout = useCallback(async () => {
     setLoading(true);
@@ -90,11 +117,26 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  const updateUserProfile = useCallback(async (profileData) => {
+    const updated = await authApi.updateProfile(profileData);
+    setUser((prev) => ({
+      ...prev,
+      name: updated.name,
+      username: updated.username,
+      standard: updated.standard,
+      school: updated.school,
+    }));
+    return updated;
+  }, []);
+
   const value = {
     user,
     loading,
     login,
     register,
+    resetPassword,
+    resendVerificationEmail,
+    updateUserProfile,
     logout,
     isAdmin: user?.role === 'admin',
   };

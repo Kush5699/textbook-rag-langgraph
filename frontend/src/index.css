@@ -2,13 +2,105 @@
 @tailwind components;
 @tailwind utilities;
 
+/* CSS Variables for Light & Dark Theme */
+:root {
+  color-scheme: light;
+  --surface: 255 255 255;
+  --surface-dim: 242 243 250;
+  --surface-bright: 255 255 255;
+  --surface-container-lowest: 255 255 255;
+  --surface-container-low: 248 249 253;
+  --surface-container: 242 244 250;
+  --surface-container-high: 234 237 246;
+  --surface-container-highest: 226 230 242;
+  --on-surface: 19 24 38;
+  --on-surface-variant: 84 88 104;
+  --inverse-surface: 35 38 48;
+  --inverse-on-surface: 245 246 252;
+  --outline: 140 144 160;
+  --outline-variant: 218 221 232;
+  --surface-tint: 69 79 186;
+  --primary: 69 79 186; /* #454fba: Lavender 500 */
+  --on-primary: 255 255 255;
+  --primary-container: 106 114 200;
+  --on-primary-container: 255 255 255;
+  --secondary: 34 174 221;
+  --secondary-container: 209 239 248;
+  --on-secondary-container: 20 100 128;
+  --background: 255 255 255;
+  --on-background: 19 24 38;
+}
+
+/* Custom Curated Dark Palette:
+   - Base Canvas & Containers: Pale Slate scale (950, 900, 800, 700)
+   - Primary Interactive Accents: Lavender scale (300, 400, 500)
+   - Secondary Supporting Accents: Dark Teal & Dark Slate Grey scale
+*/
+html.dark,
+.dark {
+  color-scheme: dark;
+  
+  /* Canvas Backgrounds (Clean, static, uniform deep dark canvas) */
+  --background: 14 15 17;               /* #0e0f11 (deep static dark: Main Canvas) */
+  --surface: 14 15 17;                  /* #0e0f11 (deep static dark: Uniform canvas) */
+  --surface-dim: 10 11 13;              /* #0a0b0d */
+  --surface-bright: 30 32 38;           /* #1e2026 */
+  --surface-container-lowest: 20 21 25; /* #141519 (Chat message bubbles & Cards) */
+  --surface-container-low: 26 28 34;    /* Intermediate layer */
+  --surface-container: 34 36 44;        /* #22242c (Hover states, input backdrop) */
+  --surface-container-high: 48 51 61;   /* #30333d (Active pill tags, elevated toggles) */
+  --surface-container-highest: 64 68 80;/* #404450 */
+  
+  /* Text with High Readability (Lavender-50 & Pale-Slate-200) */
+  --on-surface: 236 237 248;            /* #ecedf8 (lavender-50: Crisp, elegant headings & chat text) */
+  --on-surface-variant: 170 174 187;    /* #aaaebb (pale-slate-300: Secondary text & metadata) */
+  --on-background: 236 237 248;         /* #ecedf8 (lavender-50) */
+  
+  /* Borders & Dividers */
+  --outline: 113 120 142;               /* #71788e (pale-slate-500: Focused outlines & sliders) */
+  --outline-variant: 45 48 57;          /* #2d3039 (pale-slate-800: Clean subtle container borders) */
+  
+  /* Primary Accents (Lavender-400 / Lavender-300: Vibrant yet soft on eyes) */
+  --primary: 143 149 214;               /* #8f95d6 (lavender-300: Primary links, icons, button fills) */
+  --on-primary: 10 11 26;               /* #0a0b1a (lavender-950: High contrast text on primary buttons) */
+  --primary-container: 69 79 186;       /* #454fba (lavender-500) */
+  --on-primary-container: 236 237 248;  /* #ecedf8 (lavender-50) */
+  --surface-tint: 143 149 214;
+  
+  /* Secondary Accents (Dark Teal scale) */
+  --secondary: 79 190 227;              /* #4fbee3 (dark-teal-400: Citations, badges, highlights) */
+  --secondary-container: 21 104 132;    /* #156884 (dark-teal-700) */
+  --on-secondary-container: 233 247 252;/* #e9f7fc (dark-teal-50) */
+  
+  --inverse-surface: 236 237 248;
+  --inverse-on-surface: 16 17 20;
+}
+
 @layer base {
   html, body {
-    @apply antialiased text-on-surface bg-surface font-sans;
+    @apply antialiased text-on-surface bg-surface font-sans transition-colors duration-200;
   }
   
   h1, h2, h3, h4, h5, h6 {
     @apply font-display;
+  }
+
+  /* Markdown prose styling in dark mode */
+  .dark .prose {
+    --tw-prose-body: rgb(var(--on-surface));
+    --tw-prose-headings: rgb(var(--primary));
+    --tw-prose-links: rgb(var(--secondary));
+    --tw-prose-bold: rgb(var(--on-surface));
+    --tw-prose-counters: rgb(var(--on-surface-variant));
+    --tw-prose-bullets: rgb(var(--outline));
+    --tw-prose-hr: rgb(var(--outline-variant));
+    --tw-prose-quotes: rgb(var(--on-surface));
+    --tw-prose-quote-borders: rgb(var(--primary));
+    --tw-prose-code: rgb(var(--on-surface));
+    --tw-prose-pre-code: rgb(var(--on-surface));
+    --tw-prose-pre-bg: rgb(var(--surface-container-lowest));
+    --tw-prose-th-borders: rgb(var(--outline-variant));
+    --tw-prose-td-borders: rgb(var(--outline-variant));
   }
 }
 

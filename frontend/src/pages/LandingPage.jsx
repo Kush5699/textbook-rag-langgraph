@@ -1,6 +1,8 @@
 import React, { Suspense, lazy } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useTheme } from '../contexts/ThemeContext';
+import Icon from '../components/common/Icon';
 import AmbientGradient from '../components/landing/AmbientGradient';
 import WordReveal from '../components/landing/WordReveal';
 
@@ -8,10 +10,25 @@ const Hero3DScene = lazy(() => import('../components/landing/Hero3DScene'));
 
 export default function LandingPage() {
   const navigate = useNavigate();
+  const { isDark, toggleTheme } = useTheme();
 
   return (
-    <div className="min-h-screen bg-surface flex flex-col md:flex-row overflow-hidden relative">
+    <div className="min-h-screen bg-surface flex flex-col md:flex-row overflow-hidden relative transition-colors duration-200">
       <AmbientGradient />
+
+      {/* Theme Toggle Button */}
+      <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-20">
+        <button
+          type="button"
+          onClick={toggleTheme}
+          className="p-2.5 px-3.5 rounded-xl bg-surface-container-lowest/80 backdrop-blur-md border border-outline-variant/40 text-on-surface-variant hover:text-primary hover:border-primary/40 shadow-sm transition-all flex items-center gap-2 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/40"
+          title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          aria-label="Toggle Theme"
+        >
+          <Icon name={isDark ? 'light_mode' : 'dark_mode'} style={{ fontSize: '18px' }} />
+          <span className="hidden sm:inline font-sans">{isDark ? 'Light' : 'Dark'}</span>
+        </button>
+      </div>
       
       <div className="flex-1 flex flex-col justify-center p-8 md:p-16 z-10">
         <motion.h1 
